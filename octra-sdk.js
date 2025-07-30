@@ -47,8 +47,79 @@ class OctraSDK {
     this.provider = null;
     this.waitForProvider = null;
     
+    // Load persisted connection state
+    this.loadConnectionState();
+    
     // Initialize provider detection
     this.initializeProvider();
+  }
+
+  /**
+   * Load connection state from localStorage
+   */
+  loadConnectionState() {
+    try {
+      const savedState = localStorage.getItem('octra-wallet-state');
+      if (savedState) {
+        const state = JSON.parse(savedState);
+        this.connectedAddress = state.address;
+        this.isConnected = state.isConnected;
+      }
+    } catch (error) {
+      console.warn('Failed to load wallet state:', error);
+    }
+  }
+
+  /**
+   * Save connection state to localStorage
+   */
+  saveConnectionState() {
+    try {
+      const state = {
+        address: this.connectedAddress,
+        isConnected: this.isConnected
+      };
+      localStorage.setItem('octra-wallet-state', JSON.stringify(state));
+    } catch (error) {
+      console.warn('Failed to save wallet state:', error);
+    }
+  }
+
+  /**
+   * Clear connection state from localStorage
+   */
+  clearConnectionState() {
+    try {
+      localStorage.removeItem('octra-wallet-state');
+    } catch (error) {
+      console.warn('Failed to clear wallet state:', error);
+    }
+  }
+
+  /**
+   * Verify if the current connection is still valid
+   */
+  async verifyConnection() {
+    if (!this.provider || !this.isConnected) {
+      return false;
+    }
+
+    try {
+      // Try to get the current account to verify connection
+      const accounts = await this.provider.getAccounts();
+      if (accounts && accounts.length > 0) {
+        // Update address if it changed
+        if (accounts[0] !== this.connectedAddress) {
+          this.connectedAddress = accounts[0];
+          this.saveConnectionState();
+        }
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.warn('Connection verification failed:', error);
+      return false;
+    }
   }
 
   /**
@@ -116,12 +187,14 @@ class OctraSDK {
     this.provider.on('connect', (data) => {
       this.isConnected = true;
       this.connectedAddress = data.address;
+      this.saveConnectionState();
     });
 
     // Listen for disconnect events
     this.provider.on('disconnect', () => {
       this.isConnected = false;
       this.connectedAddress = null;
+      this.clearConnectionState();
     });
 
     // Listen for account changes
@@ -129,9 +202,11 @@ class OctraSDK {
       if (accounts.length > 0) {
         this.connectedAddress = accounts[0];
         this.isConnected = true;
+        this.saveConnectionState();
       } else {
         this.connectedAddress = null;
         this.isConnected = false;
+        this.clearConnectionState();
       }
     });
   }
@@ -177,6 +252,7 @@ class OctraSDK {
       
       this.isConnected = true;
       this.connectedAddress = result.address;
+      this.saveConnectionState();
       
       return {
         success: true,
@@ -358,6 +434,7 @@ class OctraSDK {
     
     this.isConnected = false;
     this.connectedAddress = null;
+    this.clearConnectionState();
   }
 
   /**

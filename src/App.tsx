@@ -17,7 +17,8 @@ import {
   Calculator,
   AlertCircle,
   CheckCircle,
-  Loader2
+  Loader2,
+  Copy
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -330,6 +331,37 @@ function App() {
     return `${address.slice(0, 8)}...${address.slice(-6)}`;
   };
 
+  const copyAddress = async () => {
+    if (connectedAddress) {
+      try {
+        await navigator.clipboard.writeText(connectedAddress);
+        toast({
+          title: "Address Copied",
+          description: "Wallet address copied to clipboard",
+        });
+      } catch (error) {
+        toast({
+          title: "Copy Failed",
+          description: "Failed to copy address to clipboard",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const useMyAddress = () => {
+    if (selectedMethod && selectedMethod.name === 'getCredits' && connectedAddress) {
+      setMethodParams(prev => ({
+        ...prev,
+        address: connectedAddress
+      }));
+      toast({
+        title: "Address Set",
+        description: "Your wallet address has been set as parameter",
+      });
+    }
+  };
+
   return (
     <ThemeProvider defaultTheme="dark" storageKey="octra-sample-dapp-theme">
       <div className="min-h-screen bg-background">
@@ -348,9 +380,15 @@ function App() {
               
               {isConnected ? (
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="flex items-center gap-2">
+                  <Badge 
+                    variant="secondary" 
+                    className="flex items-center gap-2 cursor-pointer hover:bg-secondary/80 transition-colors"
+                    onClick={copyAddress}
+                    title="Click to copy address"
+                  >
                     <CheckCircle className="h-3 w-3" />
                     {truncateAddress(connectedAddress)}
+                    <Copy className="h-3 w-3 ml-1" />
                   </Badge>
                   <Button variant="outline" onClick={disconnectWallet}>
                     <X className="h-4 w-4 mr-2" />
@@ -453,7 +491,19 @@ function App() {
                       {/* Parameters */}
                       {selectedMethod.params.length > 0 && (
                         <div className="space-y-3">
-                          <h4 className="font-medium">Parameters</h4>
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium">Parameters</h4>
+                            {selectedMethod.name === 'getCredits' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={useMyAddress}
+                                className="text-xs"
+                              >
+                                Use My Address
+                              </Button>
+                            )}
+                          </div>
                           {selectedMethod.params.map((param, index) => (
                             <div key={index} className="space-y-2">
                               <Label htmlFor={param.name}>
