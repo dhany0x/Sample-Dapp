@@ -105,17 +105,8 @@ class OctraSDK {
     }
 
     try {
-      // Try to get the current account to verify connection
-      const accounts = await this.provider.getAccounts();
-      if (accounts && accounts.length > 0) {
-        // Update address if it changed
-        if (accounts[0] !== this.connectedAddress) {
-          this.connectedAddress = accounts[0];
-          this.saveConnectionState();
-        }
-        return true;
-      }
-      return false;
+      // Simple check - just verify provider exists and we have an address
+      return !!(this.provider && this.connectedAddress);
     } catch (error) {
       console.warn('Connection verification failed:', error);
       return false;

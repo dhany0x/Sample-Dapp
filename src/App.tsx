@@ -104,45 +104,16 @@ function App() {
 
             // Check if we have a restored connection from localStorage
             if (sdk.isConnected && sdk.connectedAddress) {
-              // Immediately restore the UI state
+              // Restore the UI state
               setIsConnected(true);
               setConnectedAddress(sdk.connectedAddress);
               console.log('Wallet connection state restored from localStorage');
               
-              // Perform background verification with improved error handling
-              const performBackgroundVerification = async () => {
-                try {
-                  // Wait longer for provider to fully initialize
-                  await new Promise(resolve => setTimeout(resolve, 2000));
-                  
-                  // Check if provider is available before verification
-                  if (!sdk.provider) {
-                    console.warn('Provider not available yet, skipping verification');
-                    return;
-                  }
-                  
-                  const isValid = await sdk.verifyConnection();
-                  if (!isValid) {
-                    // Only disconnect if we're certain the connection is invalid
-                    console.log('Connection verification failed, but keeping UI state for user retry');
-                    // Don't automatically disconnect - let user try to use the connection
-                    // If it fails during actual usage, that's when we'll disconnect
-                  } else {
-                    console.log('Wallet connection verified successfully');
-                    toast({
-                      title: "Wallet Connected",
-                      description: `Connected to ${sdk.connectedAddress.slice(0, 8)}...${sdk.connectedAddress.slice(-6)}`,
-                    });
-                  }
-                } catch (error) {
-                  console.warn('Background verification failed:', error.message);
-                  // Don't disconnect on verification errors - let the user try to use the connection
-                  // The actual wallet operations will handle connection issues appropriately
-                }
-              };
-              
-              // Run verification in background without blocking UI
-              performBackgroundVerification();
+              // Show connection restored message
+              toast({
+                title: "Wallet Connected",
+                description: `Connected to ${sdk.connectedAddress.slice(0, 8)}...${sdk.connectedAddress.slice(-6)}`,
+              });
             }
           }
         } else {
@@ -242,7 +213,6 @@ function App() {
   const executeMethod = async () => {
     if (!selectedMethod || !octraSDK) return;
 
-    // Check if still connected before executing
     if (!isConnected) {
       toast({
         title: "Wallet Not Connected",
@@ -250,24 +220,6 @@ function App() {
         variant: "destructive",
       });
       return;
-    }
-
-    // Verify connection with provider before executing
-    try {
-      const isStillConnected = await octraSDK.verifyConnection();
-      if (!isStillConnected) {
-        setIsConnected(false);
-        setConnectedAddress('');
-        toast({
-          title: "Wallet Disconnected",
-          description: "Please reconnect your wallet and try again",
-          variant: "destructive",
-        });
-        return;
-      }
-    } catch (verifyError) {
-      console.warn('Connection verification failed:', verifyError.message);
-      // Continue with execution, let the actual call handle connection issues
     }
 
     setIsLoading(true);
@@ -305,11 +257,16 @@ function App() {
         description: `${selectedMethod.name} executed successfully`,
       });
     } catch (error) {
-      // Check if the error is due to wallet disconnection
-      if (error.message.includes('not connected') || error.message.includes('Not connected')) {
+      // Handle wallet disconnection errors more gracefully
+      if (error.message.includes('not connected') || 
+          error.message.includes('Not connected') ||
+          error.message.includes('wallet') ||
+          error.message.includes('extension')) {
         setIsConnected(false);
         setConnectedAddress('');
-        octraSDK.clearConnectionState();
+        if (octraSDK) {
+          octraSDK.clearConnectionState();
+        }
         toast({
           title: "Wallet Disconnected",
           description: "Please reconnect your wallet and try again",
